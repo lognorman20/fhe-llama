@@ -8,6 +8,7 @@ use tfhe::{
 };
 
 pub type StringCipherText = Vec<FheUint8>;
+pub type Vec4D = Vec<Vec<Vec<Vec<FheUint8>>>>;
 
 #[derive(Default)]
 pub struct Tensor {
@@ -16,7 +17,7 @@ pub struct Tensor {
 }
 
 impl Tensor {
-    pub fn new(values: StringCipherText) -> Self {
+    pub fn from_cipher(values: StringCipherText) -> Self {
         let dim = vec![1; values.len()];
         Self { values, dim }
     }
@@ -76,53 +77,42 @@ pub fn encrypt_str(client_key: &ClientKey, s: &str) -> Result<StringCipherText, 
         .collect())
 }
 
-// Sqrt using binary search
+// Integer square root using Newton's method (https://math.mit.edu/~stevenj/18.335/newton-sqrt.pdf)
 pub fn rsqrt(n: &FheUint8) -> FheUint8 {
-    let mut low: FheUint8 = FheUint8::encrypt_trivial(0u8);
-    let mut high: FheUint8 = n.clone();
-    let mut mid: FheUint8;
+    let mut x = n.clone();
+    let mut y = (&x + 1) / 2;
+    let mut less_than: u8 = (&y).lt(&x).if_then_else(
+        &FheUint8::encrypt_trivial(1u8),
+        &FheUint8::encrypt_trivial(0u8),
+    ).try_decrypt_trivial().unwrap();
 
-    // while low.lt(&high) {
-    //     mid = (&high + &low) / 2;
-    //     let target = &mid * &mid;
-    //     if target.gt(&high).try_decrypt_trivial().unwrap() {
-    //         high = mid - 1;
-    //     } else if target.lt(n).try_decrypt_trivial().unwrap() {
-    //         low = &mid + 1;
-    //     } else {
-    //         return mid;
-    //     }
-    // }
+    while less_than == 1 {
+        x = y.clone();
+        y = (&x + (n / &x)) / 2;
+        
+        less_than = (&y).lt(&x).if_then_else(
+            &FheUint8::encrypt_trivial(1u8),
+            &FheUint8::encrypt_trivial(0u8),
+        ).try_decrypt_trivial().unwrap();
+    }
 
-    loop {
-        mid = (&high + &low) / 2;
-        let target = &mid * &mid;
-        let greater_than: u8 = target.gt(n).if_then_else(
-            &FheUint8::encrypt_trivial(1u8),
-            &FheUint8::encrypt_trivial(0u8),
-        ).try_decrypt_trivial().unwrap();
-        let less_than: u8 = target.lt(n).if_then_else(
-            &FheUint8::encrypt_trivial(1u8),
-            &FheUint8::encrypt_trivial(0u8),
-        ).try_decrypt_trivial().unwrap();
-        let equal: u8 = target.eq(n).if_then_else(
-            &FheUint8::encrypt_trivial(1u8),
-            &FheUint8::encrypt_trivial(0u8),
-        ).try_decrypt_trivial().unwrap();
-        let low_check: u8 = low.gt(&high).if_then_else(
-            &FheUint8::encrypt_trivial(1u8),
-            &FheUint8::encrypt_trivial(0u8),
-        ).try_decrypt_trivial().unwrap();
+    x
+}
 
-        if greater_than != 0 {
-            high = &mid - 1;
-        } else if less_than != 0 {
-            low = &mid + 1;
-        } else if equal == 1 {
-            return mid;
-        }  else if low_check != 0 {
-            return high;
+pub struct CacheTensor {
+    pub values: Vec4D
+}
+
+impl CacheTensor {
+    pub fn zeros(dim: &Vec<usize>) -> Result<Self, &'static str> {
+        if dim.len() != 4 {
+            return Err("Dimensions should have 4 parameters");
         }
+        let (W, X, Y, Z) = (dim[0], dim[1], dim[2], dim[3]);
+
+        let output = vec![vec![vec![vec![FheUint8::encrypt_trivial(0_u8); Z]; Y]; X]; W];
+        
+        Ok(Self { values: output })
     }
 }
 
@@ -169,8 +159,8 @@ mod tests {
         let (client_key, server_key) = generate_keys(config);
         set_server_key(server_key);
 
-        let tensor1 = Tensor::new(encrypt_str(&client_key, "123").unwrap());
-        let tensor2 = Tensor::new(encrypt_str(&client_key, "456").unwrap());
+        let tensor1 = Tensor::from_cipher(encrypt_str(&client_key, "123").unwrap());
+        let tensor2 = Tensor::from_cipher(encrypt_str(&client_key, "456").unwrap());
 
         let result = tensor1.mul(&tensor2).unwrap();
 
@@ -191,10 +181,10 @@ mod tests {
         let (client_key, server_key) = generate_keys(config);
 
         set_server_key(server_key);
-        let a = FheUint8::encrypt_trivial(37u8);
+        let a = FheUint8::encrypt_trivial(100u8);
         let res = rsqrt(&a);
         let decrypted: u8 = res.decrypt(&client_key);
 
-        assert_eq!(decrypted, 6u8);
+        assert_eq!(decrypted, 10u8);
     }
 }

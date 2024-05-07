@@ -44,11 +44,9 @@ fn main() {
 
     // // Client-side
     let (client_key, server_key) = generate_keys(config);
-    // let cipher = encrypt_str(&client_key, "SPOTEMGOTEM").unwrap();
-    // let t = Tensor::new(cipher);
 
     set_server_key(server_key);
-    let a = FheUint8::encrypt_trivial(4u8);
+    let a = FheUint8::encrypt_trivial(37_u8);
     let res = rsqrt(&a);
     let decrypted: u8 = res.decrypt(&client_key);
 
