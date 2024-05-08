@@ -14,4 +14,37 @@ from Zama. This project takes in an arbitrary string of words, converts them int
 
 Additionally, each file has its own set of brief tests.
 
-`src/main.rs` can be run as an example usage of the project.
+`src/main.rs` can be run as an example usage of the project as shown below:
+```rust
+fn main() {
+    let config = ConfigBuilder::default().build();
+
+    // Client-side
+    println!("Starting setup...");
+    let (client_key, server_key) = generate_keys(config);
+    let cleartext = "Hello world!";
+    let cipher = encrypt_str(&client_key, &cleartext).unwrap();
+
+    // Server-side
+    println!("Setup succesful. Deriving tensors...");
+    set_server_key(server_key);
+    let cipher_tensor = Tensor::from_cipher(cipher);
+    let weights = Tensor::random_weights(cipher_tensor.size());
+    let eps = FheUint8::encrypt_trivial(3_u8);
+
+    println!("Tensors established. Normalizing values...");
+    let normalizer = RMSNorm::new(eps, weights);
+    let normalized_vals = normalizer.forward(&cipher_tensor);
+
+    println!("Values normalized. Establishing QKV cache...");
+    let cache = KVCache::new(2, 4, 3, 4);
+    let xk = Tensor::from_cipher(vec![FheUint8::encrypt_trivial(1_u8); 2]);
+    let xv = Tensor::from_cipher(cipher_tensor.values);
+
+    cache.update(2, 0, &xk, &xv);
+    let keys: &CacheSlice = cache.get_keys(2, 0, 2);
+    let values: &CacheSlice = cache.get_values(2, 0, 2);
+
+    println!("Complete!");
+}
+```
