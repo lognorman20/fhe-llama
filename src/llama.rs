@@ -2,7 +2,7 @@ use tfhe::{prelude::FheTrivialEncrypt, FheUint8};
 
 use crate::{
     tensor::{CacheTensor, Tensor},
-    utils::rsqrt,
+    utils::isqrt,
 };
 
 pub struct RMSNorm {
@@ -22,7 +22,7 @@ impl RMSNorm {
             .fold(FheUint8::encrypt_trivial(0u8), |sum, x| sum + (x * x))
             + &self.eps;
         let mean = sum / FheUint8::encrypt_trivial(x.size() as u8);
-        let factor = rsqrt(&mean);
+        let factor = isqrt(&mean);
 
         let factor_vec = vec![factor; x.size()];
         let factor_tensor = Tensor::from_cipher(factor_vec);
@@ -54,9 +54,9 @@ impl KVCache {
 
     pub fn update(&self, batch_size: usize, start_pos: usize, xk: &Tensor, xv: &Tensor) -> () {
         let mut change_keys =
-            self.cache_k.values[0..batch_size][start_pos..start_pos + xk.size()].to_vec();
+            self.cache_k.values[0..batch_size].to_vec();
         let mut change_values =
-            self.cache_v.values[0..batch_size][start_pos..start_pos + xv.size()].to_vec();
+            self.cache_v.values[0..batch_size].to_vec();
 
         for layer_one in change_keys.iter_mut() {
             for layer_two in layer_one.iter_mut() {

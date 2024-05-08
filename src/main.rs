@@ -16,7 +16,7 @@ fn main() {
     // Client-side
     println!("Starting setup...");
     let (client_key, server_key) = generate_keys(config);
-    let cleartext = "Hello";
+    let cleartext = "Hello world!";
     let cipher = encrypt_str(&client_key, &cleartext).unwrap();
 
     // Server-side
@@ -32,9 +32,9 @@ fn main() {
     // let normalized_vals = normalizer.forward(&cipher_tensor);
 
     println!("Values normalized. Establishing QKV cache...");
-    let cache = KVCache::new(2, 3, 4, 2);
+    let cache = KVCache::new(2, 4, 3, 4);
     let xk = Tensor::from_cipher(vec![FheUint8::encrypt_trivial(1_u8); 2]);
-    let xv = Tensor::from_cipher(vec![FheUint8::encrypt_trivial(4_u8); 2]);
+    let xv = Tensor::from_cipher(cipher_tensor.values);
 
     cache.update(2, 0, &xk, &xv);
     let _keys: &CacheSlice = cache.get_keys(2, 0, 2);

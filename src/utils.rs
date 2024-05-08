@@ -17,7 +17,7 @@ pub fn encrypt_str(client_key: &ClientKey, s: &str) -> Result<StringCipherText, 
 }
 
 // Integer square root using Newton's method (https://math.mit.edu/~stevenj/18.335/newton-sqrt.pdf)
-pub fn rsqrt(n: &FheUint8) -> FheUint8 {
+pub fn isqrt(n: &FheUint8) -> FheUint8 {
     let mut x = n.clone();
     let mut y = (&x + 1) / 2;
     let mut less_than: u8 = (&y)
@@ -59,7 +59,7 @@ mod tests {
 
         set_server_key(server_key);
         let a = FheUint8::encrypt_trivial(100u8);
-        let res = rsqrt(&a);
+        let res = isqrt(&a);
         let decrypted: u8 = res.decrypt(&client_key);
 
         assert_eq!(decrypted, 10u8);
