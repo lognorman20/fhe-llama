@@ -1,54 +1,44 @@
-use tfhe::{prelude::*, FheBool, FheUint, FheUint8Id};
+use llama::RMSNorm;
+use tensor::Tensor;
+use tfhe::prelude::*;
 use tfhe::{generate_keys, set_server_key, ConfigBuilder, FheUint8};
-use utils::{encrypt_str, rsqrt};
+use utils::encrypt_str;
 
-use crate::utils::Tensor;
+use crate::llama::{CacheSlice, KVCache};
 
-mod utils;
 mod llama;
-
-/// OUTLINE ////////////////////////////////////////////////////////////////////
-// Take in the user's input as a string
-// Encrypt the user's text into a vector of characters (unnormalized characters)
-// Pass the encrypted vector into rmsnorm
-// Pass the normalized vector into the projection function
-// Return the encrypted projection to be decrypted
-///////////////////////////////////////////////////////////////////////////////
-
-fn int_example() {
-    let config = ConfigBuilder::default().build();
-
-    // Client-side
-    let (client_key, server_key) = generate_keys(config);
-
-    let clear_a = 3u8;
-    let clear_b = 12u8;
-
-    let a = FheUint8::encrypt(clear_a, &client_key);
-    let b = FheUint8::encrypt(clear_b, &client_key);
-
-    //Server-side
-    set_server_key(server_key);
-    let result = a * b;
-
-    //Client-side
-    let decrypted_result: u8 = result.decrypt(&client_key);
-
-    let clear_result = clear_a * clear_b;
-
-    assert_eq!(decrypted_result, clear_result);
-}
+mod tensor;
+mod utils;
 
 fn main() {
     let config = ConfigBuilder::default().build();
 
-    // // Client-side
+    // Client-side
+    println!("Starting setup...");
     let (client_key, server_key) = generate_keys(config);
+    let cleartext = "Hello";
+    let cipher = encrypt_str(&client_key, &cleartext).unwrap();
 
+    // Server-side
+    println!("Setup succesful. Deriving tensors...");
     set_server_key(server_key);
-    let a = FheUint8::encrypt_trivial(37_u8);
-    let res = rsqrt(&a);
-    let decrypted: u8 = res.decrypt(&client_key);
+    let cipher_tensor = Tensor::from_cipher(cipher);
+    let weights = Tensor::ones(cipher_tensor.size());
+    let eps = FheUint8::encrypt_trivial(3_u8);
 
-    println!("{:?}", decrypted);
+    println!("Tensors established. Normalizing values...");
+    let _normalizer = RMSNorm::new(eps, weights);
+    // slow operation
+    // let normalized_vals = normalizer.forward(&cipher_tensor);
+
+    println!("Values normalized. Establishing QKV cache...");
+    let cache = KVCache::new(2, 3, 4, 2);
+    let xk = Tensor::from_cipher(vec![FheUint8::encrypt_trivial(1_u8); 2]);
+    let xv = Tensor::from_cipher(vec![FheUint8::encrypt_trivial(4_u8); 2]);
+
+    cache.update(2, 0, &xk, &xv);
+    let _keys: &CacheSlice = cache.get_keys(2, 0, 2);
+    let _values: &CacheSlice = cache.get_values(2, 0, 2);
+
+    println!("Complete!");
 }
