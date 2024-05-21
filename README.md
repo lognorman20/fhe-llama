@@ -6,7 +6,7 @@ Queries, Keys, and Values using the FHE library
 [tfhe-rs](https://github.com/zama-ai/tfhe-rs?tab=readme-ov-file#a-simple-example)
 from Zama. This project takes in an arbitrary string of words, converts them into an encrypted vector representing a user's prompt, transforms this vector into a custom `Tensor`, and outputs an encrypted `Q`, `K`, and `V` vector.
 
-`src/tensor.rs` contains a bare bones implementation of a Tensor. A custom implementation was developed because of the lack of support for mathematical operations of encrypted data types such as [tfhe-rs](https://github.com/zama-ai/tfhe-rs?tab=readme-ov-file#a-simple-example)'s `FheUint`.
+`src/tensor.rs` contains a bare bones implementation of a Tensor. A custom implementation was developed because of the lack of support from popular existing Tensor and ndarray libraries in Rust for mathematical operations of encrypted data types such as [tfhe-rs](https://github.com/zama-ai/tfhe-rs?tab=readme-ov-file#a-simple-example)'s `FheUint`.
 
 `src/llama.rs` contains an implementation of the [RMSNorm](https://arxiv.org/abs/1910.07467) normalizer. It loosely follows the official implementation in the [open source code of LLAMA](https://github.com/meta-llama/llama/). Further, this file implements a QKV cache to be used in a model.
 
